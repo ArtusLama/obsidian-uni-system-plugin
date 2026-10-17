@@ -1,0 +1,10 @@
+{
+	"id": "uni-system",
+	"name": "Uni System",
+	"version": "1.0.0",
+	"minAppVersion": "1.0.0",
+	"description": "A personal plugin for my Uni Obsidian vault.",
+	"author": "Arthur Paucke",
+	"authorUrl": "https://arthur-paucke.de",
+	"isDesktopOnly": false
+}
