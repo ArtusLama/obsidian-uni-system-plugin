@@ -5,14 +5,27 @@ import {
 	Modal,
 	Notice,
 	Plugin,
+	FileManager,
+	TFolder,
+	App,
+	TFile
 } from "obsidian";
 import {
 	DEFAULT_SETTINGS,
 	UniSystemPluginSettings,
 	SampleSettingTab,
 } from "./settings";
+import { setupNewModule } from "./moduleSetup";
+import { getDropdownModal, getTextInputModal, TextInputModal } from "./modals";
+import { createNewLecture } from "./lectures";
 
 // Remember to rename these classes and interfaces!
+
+const MODULES_FOLDER_PATH = "01 Modules";
+const LECTURE_TEMPLATE_PATH = "System/Templates/LECTURE_TEMPLATE.md";
+const MODULE_TEMPLATE_FOLDER_PATH = "System/Templates/MODULE_TEMPLATE";
+const LECTURES_FOLDER_NAME = "Vorlesungen";
+
 
 export default class UniSystemPlugin extends Plugin {
 	settings!: UniSystemPluginSettings;
@@ -20,70 +33,73 @@ export default class UniSystemPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		this.addRibbonIcon("file-plus-corner", "New Lecture", (_evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice("This is a notice haha!");
+
+		const newLecture = async () => {
+			const templateFile = this.app.vault.getFileByPath(LECTURE_TEMPLATE_PATH);
+			
+			const modulesFolder = this.app.vault.getFolderByPath(MODULES_FOLDER_PATH);
+			const modules = modulesFolder?.children.filter((child) => child instanceof TFolder).map((folder) => folder.name) || [];
+
+			const module = await getDropdownModal(this.app, "Select Module", modules);
+			if (module) {
+				const lecturesFolder = this.app.vault.getFolderByPath(`${MODULES_FOLDER_PATH}/${module}/${LECTURES_FOLDER_NAME}`);
+
+				if (lecturesFolder instanceof TFolder && templateFile instanceof TFile && modulesFolder instanceof TFolder) {
+					const lectureFile = await createNewLecture(this.app, module, templateFile, lecturesFolder);
+					if (lectureFile) {
+						await this.app.workspace.getLeaf().openFile(lectureFile);
+					}
+				} else {
+					new Notice("Error creating new lecture!");
+				}
+
+			} else {
+				new Notice("No module selected. Lecture creation canceled.");
+				return;
+			}
+		}
+
+		
+		this.addRibbonIcon("file-plus-corner", "New Lecture", newLecture);
+		this.addCommand({
+			id: "create-new-lecture",
+			name: "Create new lecture",
+			callback: newLecture
 		});
+
+
+
+		this.addCommand({
+			id: "create-new-module-setup",
+			name: "Create new module setup",
+			callback: async () => {
+				const templateFolder = this.app.vault.getFolderByPath(MODULE_TEMPLATE_FOLDER_PATH);
+				const modulesFolder = this.app.vault.getFolderByPath(MODULES_FOLDER_PATH);
+
+				if (templateFolder instanceof TFolder && modulesFolder instanceof TFolder) {
+					const moduleName = await getTextInputModal(this.app, "Enter Module Name", "Module Name");
+					if (moduleName) {
+						await setupNewModule(moduleName, templateFolder, modulesFolder, this.app);
+					} else {
+						new Notice("Module creation canceled.");
+					}
+				} else {
+					new Notice("Template folder or Modules folder not found.");
+				}
+			}
+		});
+
+
+		
+
 
 		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
 		const statusBarItemEl = this.addStatusBarItem();
 		statusBarItemEl.setText("Status bar text");
-
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: "open-modal-simple",
-			name: "Open modal (simple)",
-			callback: () => {
-				new SampleModal(this.app).open();
-			},
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: "replace-selected",
-			name: "Replace selected content",
-			editorCallback: (
-				editor: Editor,
-				_ctx: MarkdownView | MarkdownFileInfo,
-			) => {
-				editor.replaceSelection("Sample editor command");
-			},
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: "open-modal-complex",
-			name: "Open modal (complex)",
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView =
-					this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we"re simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-				return false;
-			},
-		});
+		
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn"t belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(activeDocument, "click", (_evt: MouseEvent) => {
-			new Notice("Click");
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(
-			window.setInterval(() => console.log("setInterval"), 5 * 60 * 1000),
-		);
 	}
 
 	onunload() {}
