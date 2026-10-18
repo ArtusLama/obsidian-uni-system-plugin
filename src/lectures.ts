@@ -1,4 +1,5 @@
 import { App, Notice, TFile, TFolder } from "obsidian";
+import { syncGoodNotes, checkLecturesForGoodNotesMaterials} from "./goodnotesSync";
 
 
 
@@ -25,6 +26,9 @@ async function createNewLecture(app: App, module: string, templateFile: TFile, l
     } else {
         new Notice("Lecture file not found after creation.");
     }
+
+    await syncGoodNotes(app);
+    await checkLecturesForGoodNotesMaterials(app);
 
     return lectureFile;
 }

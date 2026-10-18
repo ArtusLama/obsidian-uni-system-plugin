@@ -18,6 +18,7 @@ import {
 import { setupNewModule } from "./moduleSetup";
 import { getDropdownModal, getTextInputModal, TextInputModal } from "./modals";
 import { createNewLecture } from "./lectures";
+import { checkLecturesForGoodNotesMaterials, syncGoodNotes } from "./goodnotesSync";
 
 // Remember to rename these classes and interfaces!
 
@@ -25,6 +26,8 @@ const MODULES_FOLDER_PATH = "01 Modules";
 const LECTURE_TEMPLATE_PATH = "System/Templates/LECTURE_TEMPLATE.md";
 const MODULE_TEMPLATE_FOLDER_PATH = "System/Templates/MODULE_TEMPLATE";
 const LECTURES_FOLDER_NAME = "Vorlesungen";
+const MATERIALS_FOLDER_NAME = "Materialien";
+const OBSIDIAN_GOODNOTES_FOLDER_PATH = MATERIALS_FOLDER_NAME + "/GoodNotes";
 
 
 export default class UniSystemPlugin extends Plugin {
@@ -80,6 +83,9 @@ export default class UniSystemPlugin extends Plugin {
 					const moduleName = await getTextInputModal(this.app, "Enter Module Name", "Module Name");
 					if (moduleName) {
 						await setupNewModule(moduleName, templateFolder, modulesFolder, this.app);
+
+						await syncGoodNotes(this.app);
+						await checkLecturesForGoodNotesMaterials(this.app);
 					} else {
 						new Notice("Module creation canceled.");
 					}
@@ -90,13 +96,26 @@ export default class UniSystemPlugin extends Plugin {
 		});
 
 
-		
 
+		await syncGoodNotes(this.app);
+		await checkLecturesForGoodNotesMaterials(this.app);
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText("Status bar text");
-		
+		this.registerInterval(window.setInterval(async () => {
+			await syncGoodNotes(this.app);
+			await checkLecturesForGoodNotesMaterials(this.app);
+		}, 1000 * 60 * 60)); // Every 60 minutes. Maybe make higher?!
+
+		this.addCommand({
+			id: "sync-goodnotes",
+			name: "Sync GoodNotes",
+			callback: async () => {
+				new Notice("Syncing GoodNotes...");
+				await syncGoodNotes(this.app);
+				await checkLecturesForGoodNotesMaterials(this.app);
+				new Notice("GoodNotes sync completed.");
+			}
+		});
+
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SampleSettingTab(this.app, this));
@@ -117,14 +136,11 @@ export default class UniSystemPlugin extends Plugin {
 	}
 }
 
-class SampleModal extends Modal {
-	onOpen() {
-		const { contentEl } = this;
-		contentEl.setText("Woah!");
-	}
-
-	onClose() {
-		const { contentEl } = this;
-		contentEl.empty();
-	}
-}
+export { 
+	MODULES_FOLDER_PATH,
+	LECTURE_TEMPLATE_PATH,
+	MODULE_TEMPLATE_FOLDER_PATH,
+	LECTURES_FOLDER_NAME,
+	MATERIALS_FOLDER_NAME,
+	OBSIDIAN_GOODNOTES_FOLDER_PATH
+};
