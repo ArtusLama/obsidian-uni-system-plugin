@@ -33,7 +33,13 @@ const SOURCE_FILE_READ_RETRIES = 5;
 let syncInProgress: Promise<void> | null = null;
 
 function isArchivedName(name: string): boolean {
-  return name.endsWith(ARCHIVED_SUFFIX) || name.startsWith("DELETED_");
+  return (
+    name.startsWith("DELETED_") ||
+    new RegExp(
+      `${ARCHIVED_SUFFIX.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}` +
+        "(?: \\d+)?(?:\\.[^/]*)?$"
+    ).test(name)
+  );
 }
 
 function normalizeFileName(name: string): string {
@@ -368,14 +374,9 @@ function getAllFilesInFolder(folder: TFolder): TFile[] {
 
   for (const child of folder.children) {
     if (child instanceof TFile) {
-      // Archived items are not current GoodNotes mirrors.
-      if (!isArchivedName(child.name)) {
-        files.push(child);
-      }
+      files.push(child);
     } else if (child instanceof TFolder) {
-      if (!isArchivedName(child.name)) {
-        files.push(...getAllFilesInFolder(child));
-      }
+      files.push(...getAllFilesInFolder(child));
     }
   }
 
